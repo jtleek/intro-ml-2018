@@ -1,0 +1,543 @@
+---
+title: Introduction to machine learning 
+date: Oct 31, 2018
+output: 
+    html_document:
+        theme: cosmo 
+        toc: true
+        toc_float: true
+        highlight: tango
+        number_sections: false
+fig_width: 5
+fig_height: 5
+author: Jeff Leek
+---
+
+
+# Why machine learning?
+
+Today we are going to be talking about machine learning. This is one of the _hottest_ areas in all of statistics/data science. Machine learning is in the news a ton lately. Some examples include: 
+
+* [Self driving cars](https://techcrunch.com/2018/10/30/waymo-takes-the-wheel-self-driving-cars-go-fully-driverless-on-california-roads/)
+* [Predicting poverty with satellites](http://science.sciencemag.org/content/353/6301/790)
+* [Assisting pathologists in detecting cancer](https://ai.googleblog.com/2017/03/assisting-pathologists-in-detecting.html)
+
+This is such a big idea that MIT basically renamed a whole collect to focus on ["Artificial Intelligence"](https://www.nytimes.com/2018/10/15/technology/mit-college-artificial-intelligence.html).
+
+
+On a more personal note you might be interested in AI and machine learning because it is one of the most in demand parts of being a data scientist right now. If you get really good at it [you can make a lot of money](https://www.nytimes.com/2018/04/19/technology/artificial-intelligence-salaries-openai.html). 
+
+The other really exciting reason to focus on AI and ML right now is that there is a lot of room for statistical science. Some of the biggest open problems include: 
+
+* [Fairness in machine learning](https://developers.google.com/machine-learning/fairness-overview/) - tons of work on sampling, causal inference, etc. 
+* [Morality in machine learning](https://www.nature.com/articles/d41586-018-07135-0) - studies of psychology, bias, reporting. 
+
+There are a ton more, including how to do EDA for machine learning, understanding the potential confounders and bias, understanding the predictive value of a positive and more. 
+
+
+# What is machine learning?
+
+Ok so machine learning is super hot right now, but what is machine learning really? You may have learned about the central dogma of statistics that you sample from a population
+
+![](./cdi1.png)
+
+Then you try to guess what will happen in the population from the sample. 
+
+
+![](./cdi2.png)
+
+For prediction we have a similar sampling problem
+
+![](./cdp1.png)
+
+But now we are trying to build a rule that can be used to predict a single observation's value of some characteristic using the others. 
+
+![](./cdp2.png)
+
+We can make this more concrete with a little mathematical notation. 
+
+
+## Notation
+
+_This section borrowed from  Rafa Irizarry's excellent [Data Science Book](https://rafalab.github.io/dsbook/introduction-to-machine-learning.html)_
+
+In Machine Learning, data comes in the form of:
+
+1. the _outcome_ we want to predict and 
+2. the _features_ that we will use to predict the outcome.
+
+We want to build an algorithm that takes feature values as input and returns a prediction for the outcome when we don't know the outcome. The machine learning approach is to _train_ an algorithm using a dataset for which we do know the outcome, and then apply this algorithm in the future to make a prediction when we don't know the outcome.
+
+Here, we will use $Y$ to denote the outcome and $X_1, \dots, X_p$ to denote features. Note that features are sometimes referred to as predictors or covariates. We consider all these to be synonyms.
+
+Prediction problems can be divided into categorical and continuous outcomes. For categorical outcomes, $Y$ can be any one of $K$ classes. The number of classes can vary greatly across applications.
+For example, in the digit reader data, $K=10$ with the classes being the digits 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9. In speech recognition, the outcome are all possible words or phrases we are trying to detect. Spam detection has two outcomes: spam or not spam. In this book, we denote the $K$ categories with indexes $k=1,\dots,K$. However, for binary data we will use $k=0,1$ for mathematical conveniences that we demonstrate later.
+
+The general set-up is as follows. We have a series of features and an unknown outcome we want to predict:
+
+```{r, echo=FALSE}
+library(dplyr)
+n <- 1
+tmp <- data.frame(outcome=rep("?",n), 
+                  feature_1 = paste0("X_1"),
+                  feature_2 = paste0("X_2"),
+                  feature_3 = paste0("X_3"),
+                  feature_4 = paste0("X_4"),
+                  feature_5 = paste0("X_5"))
+tmp %>% knitr::kable(align="c")
+```
+
+To _build a model_ that provides a prediction for any set of values $X_1=x_1, X_2=x_2, \dots X_5=x_5$, we collect data for which we know the outcome:
+
+```{r, echo=FALSE}
+n <- 10
+tmp <- data.frame(outcome = paste0("Y_", 1:n), 
+                  feature_1 = paste0("X_",1:n,",1"),
+                  feature_2 = paste0("X_",1:n,",2"),
+                  feature_3 = paste0("X_",1:n,",3"),
+                  feature_4 = paste0("X_",1:n,",4"),
+                  feature_5 = paste0("X_",1:n,",5"))
+tmp %>% knitr::kable()
+```
+
+We use the notation $\hat{Y}$ to denote the prediction. We use the term _actual outcome_ to denote what we ended up observing. So we want the prediction $\hat{Y}$ to match the _actual outcome_. 
+
+
+## ML as an optimization problem
+
+The central problem in machine learning can be thus written very simply as minimizing a distance metric. Let $\hat{Y} = f(\vec{X})$ then our goal is to minimize the distance from our estimated function of the predictors to the actual value. 
+
+$$d(Y - f(\vec{X}))$$
+
+$d(\cdot)$ could be something as simple as the mean squared distance or something much more complex. The bulk of machine learning research in theoretical computer science and statistics departments focuses on defining different values of $d$ and $f$. We will talk a bit more about this in the next lecture. 
+
+## The parts of an ML problem
+
+
+A machine learning problem consists of a few different parts and its important to consider each one. To solve a (standard) machine learning problem you need: 
+
+1. A data set to train from. 
+2. An algorithm or set of algorithms you can use to try values of $f$
+3. A distance metric $d$ for measuring how close $Y$ is to $\hat{Y}$
+4. A definition of what a "good" distance is
+
+While each of these components is a _technical_ problem, there has been a ton of work addressing those technical details. The most pressing open issue in machine learning is realizing that though these are _technical_ steps they are not _objective_ steps. In other words, how you choose the data, algorithm, metric, and definition of "good" says what you value and can dramatically change the results. A couple of cases where this was a big deal are: 
+
+1. [Machine learning for recidivism](https://www.propublica.org/article/machine-bias-risk-assessments-in-criminal-sentencing) - people built ML models to predict who would re-commit a crime. But these predictions were based on historically biased data which led to biased predictions about who would commit new crimes. 
+2. [Deciding how self driving cars should act](https://www.nature.com/articles/d41586-018-07135-0) - self driving cars will have to make decisions about how to drive, who they might injure, and how to avoid accidents. Depending on our choices for $f$ and $d$ these might lead to wildly different kinds of self driving cars. Try out the [moralmachine](http://moralmachine.mit.edu/) to see how this looks in practice. 
+
+
+
+# Example: QuickDraw!
+
+I'm going to illustrate an example of a machine learning process and we'll talk through some of the key points conceptually as we go through. This will be more "hands on" and less "technical" since the goal is to get you to think conceptually about the big open problems. 
+
+
+First, we load a few R packages we'll need 
+```{r, message=FALSE, warning=FALSE}
+library(LaF)
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(rjson)
+library(tibble)
+library(Hmisc)
+library(tidyr)
+library(rpart.plot)
+```
+
+
+## Start with a question
+
+Quick,Draw! is an online game where you are given an object to draw (like a cello, axe, airplane, etc.) and then you have to draw it with your finger. Then a pre-trained deep learning algorithm is applied to guess what kind of a drawing you have made. You can try it out here. 
+
+* https://quickdraw.withgoogle.com/
+
+One interesting thing about this project and something to keep in mind if you are thinking about ways to get cool data is the exchange that Google is making here. They are giving you a fun game to play for free and in return you are giving them a ton of free data. This is the same exchange made by other successful startups: 
+
+- [reCAPTCHA](https://www.google.com/recaptcha/intro/v3.html) you click on images to prove you are a human, they give you access to a website. 
+- [DuoLingo](https://www.duolingo.com/) you practice learning words, they collect information on the way you say those words or your translations
+
+
+There are a ton of interesting analyses you could do with these data, but we are going to start with something simple. Can we predict from the drawing data what kind of object was drawn? To make matters even simpler we are going to just look at a couple of types of images: angels, castles and clouds. 
+
+## Goal setting
+
+One important part of any machine learning problem is defining what success looks like. Here we are going to use simple accuracy and say that anything better than guessing is "good enough". But the reality would depend a ton on the application and what you are trying to do. 
+
+## Data collection
+
+
+Google has released [some of the data](https://github.com/googlecreativelab/quickdraw-dataset) from the Quick, Draw! challenge. You can either get the data in raw form or you can get some pre-processed data. 
+
+I downloaded the pre-processed data sets for clouds and axes. These data are available from [Google Cloud Platform](https://console.cloud.google.com/storage/browser/quickdraw_dataset/full/simplified). 
+
+
+- Align the drawing to the top-left corner, to have minimum values of 0.
+- Uniformly scale the drawing, to have a maximum value of 255.
+- Resample all strokes with a 1 pixel spacing.
+- Simplify all strokes using the Ramer–Douglas–Peucker algorithm with an epsilon value of 2.0.
+
+This already represents a lot of work, but even so we still have some more pre-processing to do. First we are going to load some of the data into R, it comes in [ndjson](http://ndjson.org/) format and there are lots of drawings. Here we are going to read in 100 drawings of each class.  (this code assumes you have downloaded the processed files and named them `axes.ndjson` and `clouds.ndjson`) 
+
+```{r}
+axes_json = sample_lines("axes.ndjson",100)
+clouds_json = sample_lines("clouds.ndjson",100)
+```
+
+
+## Data loading and EDA
+
+
+The data are not in a format we can do anything with yet: 
+
+```{r}
+axes_json[[1]]
+```
+
+So the next thing I did was google ["quick draw data ndjson rstats"](https://www.google.com/search?q=quick+draw+data+ndjson+rstats). I found [a tutorial](https://fronkonstin.com/2018/07/01/exploring-the-quick-draw-dataset-with-r-the-mona-lisa/) and lifted some code for processing ndjson data into data frames. 
+
+```{r}
+parse_drawing = function(list)
+{
+  lapply(list$drawing, function(z) {data_frame(x=z[[1]], y=z[[2]])}) %>% 
+    bind_rows(.id = "line") %>% mutate(drawing=list$key_id, row_id=row_number())
+}
+```
+
+Using this code I can get our first axe out
+```{r}
+first_axe = rjson::fromJSON(axes_json[[1]]) %>% parse_drawing()
+first_axe
+```
+
+Ok this doesn't look like much, but we could plot it to see if it looks like an axe. 
+
+```{r}
+ggplot(first_axe,aes(x, y)) +
+    geom_point() + 
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+
+This sort of looks ok, but maybe a better way to look at it is to actually draw the lines. 
+
+```{r}
+ggplot(first_axe,aes(x, y)) +
+    geom_path(aes(group = line), lwd=1)+
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+Hey that sort of looks like an axe! Let's see another one.
+
+```{r}
+rjson::fromJSON(axes_json[[2]]) %>% 
+    parse_drawing() %>% 
+    ggplot(aes(x, y)) +
+    geom_path(aes(group = line), lwd=1)+
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+If we were doing this for real, I'd make plots for a large sample of these, understand the variation (and look for mislabeled drawings, messed up observations, etc.). 
+
+Next let's look at a cloud
+
+```{r}
+rjson::fromJSON(clouds_json[[1]]) %>% 
+    parse_drawing() %>% 
+    ggplot(aes(x, y)) +
+    geom_path(aes(group = line), lwd=1)+
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+
+Yup, looks like a cloud!
+
+
+## Data pre-processing and feature engineering
+
+A bunch of data processing has been done for us, but the data aren't quite ready to be fed into an algorithm yet. To do that, we'd need a data frame with each row equal to one drawing and each column equal to one feature for that drawing, with an extra column for the drawing output. 
+
+Can we think of how we'd do that for a data set like this? 
+
+```{r}
+rjson::fromJSON(clouds_json[[1]]) %>% 
+    parse_drawing()
+```
+
+
+Here are two things I thought of: 
+
+1. I need the points sampled on a regular grid
+2. I need the points to be of a manageable size 
+
+
+### Points on a regular grid
+
+Let's start by creating a regular grid of 256 x and y values. 
+
+```{r}
+grid_dat = as.tibble(expand.grid(x = 1:256,y=1:256))
+```
+
+
+Now we could make each x,y value be a grid point with a join - this is overkill
+
+```{r}
+grid_axe = left_join(grid_dat,first_axe)
+grid_axe
+grid_axe %>% count(is.na(line))
+```
+
+Let's add an indicator of whether a particular value is zero or not. 
+
+```{r}
+grid_axe = grid_axe %>%
+   mutate(pixel = ifelse(is.na(line),0,1))
+```
+
+
+### Data set of a manageable size
+
+Let's try subsampling this down to a smaller image
+
+```{r}
+grid_axe$xgroup = cut2(grid_axe$x,g=16,levels.mean=TRUE)
+grid_axe$ygroup = cut2(grid_axe$y,g=16,levels.mean=TRUE)
+grid_axe
+```
+
+
+Now I can convert these to numbers so we'll have them later
+
+```{r}
+grid_axe = grid_axe %>% 
+    mutate(xgroup = as.numeric(as.character(xgroup)) - 7.5) %>%
+    mutate(ygroup = as.numeric(as.character(ygroup)) - 7.5)
+```
+
+Now we can average within groups of pixels to get a smaller image
+
+```{r}
+small_axe = grid_axe %>% 
+    group_by(xgroup,ygroup) %>%
+    summarise(pixel=mean(pixel))
+
+small_axe
+```
+
+Remember this was our original axe
+
+```{r} 
+ggplot(first_axe,aes(x, y)) +
+    geom_point() +
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+Now we can look at the small version - it looks similar - whew! :) 
+
+```{r} 
+ggplot(small_axe %>% filter(pixel > 0),aes(xgroup, ygroup)) +
+    geom_point() +
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+
+### Doing this for all axes and clouds
+
+Now let's do this for all axes and clouds
+
+
+```{r}
+img_dat = tibble(pixel=NA,type=NA,drawing=NA,pixel_number=NA)
+```
+
+
+```{r, cache=TRUE}
+
+#First axes
+
+for(i in 1:100){
+    tmp_draw = rjson::fromJSON(axes_json[[i]]) %>% parse_drawing()
+    
+    grid_draw = left_join(grid_dat,tmp_draw) %>%
+           mutate(pixel = ifelse(is.na(line),0,1)) 
+    
+    grid_draw$xgroup = cut2(grid_draw$x,g=16,levels.mean=TRUE)
+    grid_draw$ygroup = cut2(grid_draw$y,g=16,levels.mean=TRUE)
+    
+    small_draw = grid_draw %>% 
+        mutate(xgroup = as.numeric(as.character(xgroup)) - 7.5) %>%
+        mutate(ygroup = as.numeric(as.character(ygroup)) - 7.5) %>%
+    group_by(xgroup,ygroup) %>%
+    summarise(pixel=mean(pixel)) %>% ungroup() %>%
+        select(pixel) %>%
+        mutate(type="axe",drawing=i,pixel_number=row_number())
+    img_dat = img_dat %>% bind_rows(small_draw)
+}
+
+
+
+#Then clouds
+
+for(i in 1:100){
+    tmp_draw = rjson::fromJSON(clouds_json[[i]]) %>% parse_drawing()
+    
+    grid_draw = left_join(grid_dat,tmp_draw) %>%
+           mutate(pixel = ifelse(is.na(line),0,1)) 
+    
+    grid_draw$xgroup = cut2(grid_draw$x,g=16,levels.mean=TRUE)
+    grid_draw$ygroup = cut2(grid_draw$y,g=16,levels.mean=TRUE)
+    
+    small_draw = grid_draw %>% 
+        mutate(xgroup = as.numeric(as.character(xgroup)) - 7.5) %>%
+        mutate(ygroup = as.numeric(as.character(ygroup)) - 7.5) %>%
+    group_by(xgroup,ygroup) %>%
+    summarise(pixel=mean(pixel)) %>% ungroup() %>%
+        select(pixel) %>%
+        mutate(type="cloud",drawing=i,pixel_number=row_number())
+    img_dat = img_dat %>% bind_rows(small_draw)
+}
+```
+
+
+Now let's look at this new data frame
+
+```{r}
+img_dat = img_dat[-1,]
+img_dat
+```
+
+We can spread this out and viola we finally have a processed data set!
+
+```{r}
+img_final = spread(img_dat,pixel_number,pixel)
+names(img_final) = c("type","drawing",paste0("pixel",1:256))
+img_final 
+```
+
+## Splitting into training, testing, validation
+
+Now that we have our data processed an important step is to break the data up into a traing, testing, and validation set.
+
+
+Here we are going to simply use training and testing:
+
+```{r}
+train_set = createDataPartition(img_final$type,list=FALSE)
+
+train_dat = img_final[train_set,]
+test_dat = img_final[-train_set,]
+```
+
+We leave the test set alone _until the very end_
+
+
+## Now let's look at a few of the features just to see how things look
+
+```{r}
+ggplot(img_final,aes(x=type,y=pixel1)) + geom_boxplot() + theme_minimal()
+```
+
+```{r}
+ggplot(img_final,aes(x=type,y=pixel100)) + geom_boxplot() + theme_minimal()
+```
+
+
+## Fitting a model
+
+Based on our plots we should be able to do ok for this task. We can fit models using the [caret package](http://topepo.github.io/caret/index.html). The caret package simplifies a lot of model fitting for machine learning. 
+
+You can use this to fit a large number of machine learning algorithms, but today we'll use [classification and regression trees](https://www.stat.cmu.edu/~cshalizi/350/lectures/22/lecture-22.pdf). We can use the `train` command to do this in R. 
+
+
+```{r}
+mod = train(as.factor(type) ~ ., data=train_dat,method="rpart")
+mod
+```
+
+Here you can see we have reasonable accuracy, this accuracy is estimated using bootstrapping only the training set. We can look at the final model fit after model selection using the `finalModel` argument. 
+
+```{r}
+mod$finalModel
+```
+
+
+You can use the `rpart.plot` package to visualize what is actually going on here. 
+
+```{r}
+rpart.plot(mod$finalModel)
+```
+
+## Model evaluation
+
+Before evaluating our model in the test set, we want to understand what is going on with our prediction. We can do this in a couple of ways. You can use the [lime](https://cran.r-project.org/web/packages/lime/vignettes/Understanding_lime.html). Or you can start looking at the data for individual features. 
+
+```{r}
+ggplot(img_final,aes(x=type,y=pixel245)) + geom_boxplot() + theme_minimal()
+```
+
+We can also look at where this pixel would be in the image:
+
+```{r}
+expand.grid(x=1:16,y=1:16)[245,]
+```
+
+And plot it
+
+```{r}
+X = matrix(0,nrow=16,ncol=16)
+X[16,6] = 1
+pheatmap(X,cluster_cols=FALSE,cluster_rows=FALSE)
+```
+
+We can also figure out which of the images are misclassified and look at them
+
+```{r}
+missed = which(predict(mod,train_dat) != train_dat$type)
+missed_imgs = train_dat[missed,] %>% select(type,drawing) 
+
+```
+
+
+Let's look at one of the missed images
+
+```{r}
+missed_imgs  = missed_imgs %>%
+  filter(type=="axe") 
+
+rjson::fromJSON(axes_json[[missed_imgs$drawing[1]]]) %>% 
+    parse_drawing() %>% 
+    ggplot(aes(x, y)) +
+    geom_path(aes(group = line), lwd=1)+
+    scale_x_continuous(limits=c(0, 255))+
+    scale_y_reverse(limits=c(255, 0))+
+    theme_minimal()
+```
+
+
+It's not clear why we missed this? Maybe just because the model is too sparse? This would be something we'd explore more carefully. 
+
+
+The last step is to apply the predictions in the test set. You only do this once, but it gives you the best estimate of the out of sample error rate you'd see in practice. 
+
+```{r}
+confusionMatrix(factor(test_dat$type), predict(mod,test_dat))
+```
+
+This accuracy is usually slightly lower than the accuracy in the training data. 
+
+
+
